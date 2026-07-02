@@ -30,13 +30,6 @@ class App
         catch { return 0; }
     }
 
-    static string Describe(IntPtr hkl)
-    {
-        var id = (int)(hkl.ToInt64() & 0xFFFF);
-        try { var c = CultureInfo.GetCultureInfo(id); return $"{c.IetfLanguageTag} ({c.EnglishName})"; }
-        catch { return $"0x{hkl:X8}"; }
-    }
-
     static bool SwitchTo(string culture)
     {
         var langId = LangId(culture);
@@ -51,12 +44,10 @@ class App
         foreach (var hkl in layouts)
         {
             if ((hkl.ToInt64() & 0xFFFF) != langId) continue;
-            if (hkl == before) return false;
-
+            if (hkl == before) return true;
             PostMessage(GetForegroundWindow(), WM_INPUTLANGCHANGEREQUEST, IntPtr.Zero, hkl);
             Thread.Sleep(8);
             if (ActiveLayout() != before) return true;
-
             ActivateKeyboardLayout(hkl, 0);
             Thread.Sleep(8);
             return ActiveLayout() != before;
@@ -64,39 +55,23 @@ class App
         return false;
     }
 
-    static void Main()
+    static void Main(string[] args)
     {
-        string? last = null;
-        Console.Error.WriteLine("ime-switcher");
+        if (args.Length > 0)
+        {
+            SwitchTo(args[0]);
+            return;
+        }
 
+        string? last = null;
         string? line;
         while ((line = Console.ReadLine()) != null)
         {
             line = line.Trim().ToLower();
-            if (line is "" or "quit") break;
-            if (line == "status") { Console.Error.WriteLine(Describe(ActiveLayout())); continue; }
-            if (line == last) { Console.Error.WriteLine("dup"); continue; }
-
-            var switched = SwitchTo(line);
-            if (switched)
-            {
-                last = line;
-                Console.Error.WriteLine("ok");
-            }
-            else
-            {
-                var langId = LangId(line);
-                var currentLangId = (ushort)(ActiveLayout().ToInt64() & 0xFFFF);
-                if (langId == currentLangId)
-                {
-                    last = line;
-                    Console.Error.WriteLine("dup");
-                }
-                else
-                {
-                    Console.Error.WriteLine("fail");
-                }
-            }
+            if (line is "" or "quit") return;
+            if (line == last) continue;
+            SwitchTo(line);
+            last = line;
         }
     }
 }
